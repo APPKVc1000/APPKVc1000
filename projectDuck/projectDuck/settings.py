@@ -9,7 +9,7 @@
 
 BOT_NAME = "projectDuck"
 
-# SPIDER_MODULES = ["projectDuck.spiders"]
+#SPIDER_MODULES = ["projectDuck.spiders"]
 NEWSPIDER_MODULE = "projectDuck.spiders"
 
 
@@ -27,14 +27,14 @@ CONCURRENT_REQUESTS = 59049
 # See also autothrottle settings and docs
 #DOWNLOAD_DELAY = 3
 # The download delay setting will honor only one of:
-CONCURRENT_REQUESTS_PER_DOMAIN = 720
-CONCURRENT_REQUESTS_PER_IP = 1000
+CONCURRENT_REQUESTS_PER_DOMAIN = 1000
+#CONCURRENT_REQUESTS_PER_IP = 1000
 
 # Disable cookies (enabled by default)
 COOKIES_ENABLED = True
 
 # Disable Telnet Console (enabled by default)
-# TELNETCONSOLE_ENABLED = False
+#TELNETCONSOLE_ENABLED = False
 
 # Override the default request headers:
 #DEFAULT_REQUEST_HEADERS = {
@@ -46,8 +46,7 @@ COOKIES_ENABLED = True
 # See https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 SPIDER_MIDDLEWARES = {
 #    "projectDuck.middlewares.ProjectduckSpiderMiddleware": 543,
-    "scrapy.spidermiddlewares.offsite.OffsiteMiddleware": 120,
-    "scrapy.spidermiddlewares.referer.StrictOriginWhenCrossOriginPolicy": 130
+    "scrapy.spidermiddlewares.referer.StrictOriginWhenCrossOriginPolicy": 120
 }
 
 # Enable or disable downloader middlewares
@@ -72,12 +71,12 @@ ITEM_PIPELINES = {
 # See https://docs.scrapy.org/en/latest/topics/autothrottle.html
 AUTOTHROTTLE_ENABLED = True
 # The initial download delay
-AUTOTHROTTLE_START_DELAY = 7
+AUTOTHROTTLE_START_DELAY = 3
 # The maximum download delay to be set in case of high latencies
-AUTOTHROTTLE_MAX_DELAY = 13
+AUTOTHROTTLE_MAX_DELAY = 10
 # The average number of requests Scrapy should be sending in parallel to
 # each remote server
-AUTOTHROTTLE_TARGET_CONCURRENCY = 130
+AUTOTHROTTLE_TARGET_CONCURRENCY = 1000
 # Enable showing throttling stats for every response received:
 AUTOTHROTTLE_DEBUG = True
 
@@ -94,6 +93,6 @@ REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 # TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
 
-REACTOR_THREADPOOL_MAXSIZE = 120
+REACTOR_THREADPOOL_MAXSIZE = 720
 
-RETRY_TIMES = 7
+RETRY_TIMES = 120

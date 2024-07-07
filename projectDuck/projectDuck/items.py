@@ -10,7 +10,9 @@ class ProjectDuckItem(scrapy.Item):
     kingdom = scrapy.Field()
     phylum = scrapy.Field()
     classes = scrapy.Field()
-    url = scrapy.Field()
-    data = scrapy.Field()
-    data_url = scrapy.Field()
+    order = scrapy.Field()
+    family = scrapy.Field()
+    genus = scrapy.Field()
+    specie = scrapy.Field()
+    
     pass

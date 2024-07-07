@@ -86,7 +86,7 @@ len(domains)
 # In[7]:
 
 
-# len(kingdom)
+display(len(kingdom))
 kingdom_population = 0
 for website, data in kingdom.items(): 
     if isinstance(data, str): 
@@ -99,7 +99,7 @@ kingdom_population
 # In[8]:
 
 
-# len(phylum)
+display(len(phylum))
 phylum_population = 0
 for webpage, data in phylum.items(): 
     if isinstance(data, str): 
@@ -118,19 +118,19 @@ len(domains) == phylum_population + kingdom_population
 # In[10]:
 
 
-# domains
+domains
 
 
 # In[11]:
 
 
-# kingdom
+kingdom
 
 
 # In[12]:
 
 
-# phylum
+phylum
 
 
 # In[13]:
@@ -156,11 +156,8 @@ for data in classes:
             if isinstance(order, dict):
                 for family, genus in order.items():
                     order_population += 1
-                    # families.append(family)
-                    # genera.append(genus)
             elif isinstance(order, str):
                 order_population += 1
-                # species.append(duckling)
             else:
                 raise ValueError
 order_population
@@ -187,64 +184,58 @@ len(species)
 # In[18]:
 
 
-# order
+families
 
 
 # In[19]:
 
 
-# families
+genera
 
 
 # In[20]:
 
 
-# genera
+species
 
 
 # In[21]:
 
 
-# species
+len(tuple(sorted(list(filter(None, set(families))), reverse=True)))
 
 
 # In[22]:
 
 
-len(tuple(sorted(list(filter(None, set(families))), reverse=True)))
+len(tuple(sorted(list(filter(None, set(genera))), reverse=True)))
 
 
 # In[23]:
 
 
-len(tuple(sorted(list(filter(None, set(genera))), reverse=True)))
+len(tuple(sorted(list(filter(None, set(species))), reverse=True)))
 
 
 # In[24]:
 
 
-len(tuple(sorted(list(filter(None, set(species))), reverse=True)))
+tuple(sorted(list(filter(None, set(families))), reverse=True))
 
 
 # In[25]:
 
 
-# tuple(sorted(list(filter(None, set(families))), reverse=True))
+tuple(sorted(list(filter(None, set(genera))), reverse=True))
 
 
 # In[26]:
 
 
-# tuple(sorted(list(filter(None, set(genera))), reverse=True))
+tuple(sorted(list(filter(None, set(species))), reverse=True))
 
 
 # In[27]:
-
-
-# tuple(sorted(list(filter(None, set(species))), reverse=True))
-
-
-# In[28]:
 
 
 from translate import Translator
@@ -277,7 +268,7 @@ for webpage in phylum["('Hyakujuu Sentai Gaoranger', 'https://tl.wikipedia.org/w
 pprint.pp(data)
 
 
-# In[29]:
+# In[28]:
 
 
 exit()

@@ -38,273 +38,122 @@ class DuckSpider(CrawlSpider):
     rules = (
         Rule(
             LinkExtractor(
-                restrict_xpaths='//*[@class="mw-content-ltr"]//*[ancestor-or-self::*[@id[contains(.,"subcategories")]]]//*[@href[not(ancestor-or-self::*[@class="reference"]) and not(ancestor-or-self::style)]]'
+                restrict_xpaths='//*[@class="mw-content-ltr"]//*[ancestor-or-self::*[@id[contains(.,"subcategories")]]]//*[@href[not(ancestor-or-self::*[@class[contains(.,"CategoryTreeToggle")]])]]'
             ),
             callback="kingdom",
             follow=True,
         ),
         Rule(
             LinkExtractor(
-                restrict_xpaths='//*[@class="mw-content-ltr"]//*[not(ancestor-or-self::*[@id[contains(.,"subcategories")]])]//*[@href[not(ancestor-or-self::*[@class="reference"]) and not(ancestor-or-self::style)]]'
+                restrict_xpaths='//*[@class="mw-content-ltr"]//*[not(ancestor-or-self::*[@id[contains(.,"subcategories")]])]//*[@href[not(ancestor-or-self::*[@class[contains(.,"CategoryTreeToggle")]])]]'
             ),
             callback="phylum",
             follow=True,
         ),
     )
 
-    def life(self, response, duck, kingdom=None, phylum=None):
+    def life(self, response, order, duckling=ProjectDuckItem(), family=None):
 
-        # domain = response.xpath("/*[@lang]/@lang").get()
+        if family:
+            genus = response.url
 
-        duckling = ProjectDuckItem()
+            duck = dict()
+            order = dict()
+
+        for classes_data in list(
+            filter(
+                None,
+                [
+                    *[
+                        pandas.Series(
+                            data.xpath(
+                                './/descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
+                            ).extract()
+                        )
+                        .str.cat()
+                        .strip()
+                        for data in response.xpath(
+                            '//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th'
+                        )
+                    ],
+                    *[
+                        pandas.Series(
+                            data.xpath(
+                                './/descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
+                            ).extract()
+                        )
+                        .str.cat()
+                        .strip()
+                        for data in response.xpath(
+                            '//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::*]'
+                        )
+                    ],
+                ],
+            )
+        ):
+
+            classes_data = self.classes(response, duckling, classes_data)
+
+            if response.xpath(
+                f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes_data})]'
+            ):
+                class_nest = f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes_data})]'
+                order_nest = "//parent::tr//td"
+
+                self.order(response, class_nest, order_nest, order, duckling)
+                if not family:
+                    for genus in LinkExtractor(
+                        restrict_xpaths=f'{class_nest}{order_nest}//descendant-or-self::*[@href and not(ancestor-or-self::*[@class[contains(.,"new")]])]'
+                    ).extract_links(response):
+                        yield response.follow(
+                            genus,
+                            self.life,
+                            cb_kwargs=dict(order=order, family=genus.text),
+                        )
+
+            if response.xpath(
+                f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes_data})]'
+            ):
+                class_nest = f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes_data})]'
+                order_nest = "//following-sibling::*"
+
+                self.order(response, class_nest, order_nest, order, duckling)
+                if not family:
+                    for genus in LinkExtractor(
+                        restrict_xpaths=f'{class_nest}{order_nest}//descendant-or-self::*[@href and not(ancestor-or-self::*[@class[contains(.,"new")]])]'
+                    ).extract_links(response):
+                        yield response.follow(
+                            genus,
+                            self.life,
+                            cb_kwargs=dict(order=order, family=genus.text),
+                        )
+
+        if family:
+            # if order:
+            #     duck.update({family: {genus: [order, Goose({'keep_footnotes': False}).extract(raw_html=response.body).cleaned_text]}})
+            # else:
+            #     duck.update({family: {genus: Goose({'keep_footnotes': False}).extract(raw_html=response.body).cleaned_text}})
+
+            if order:
+                duck.update({family: {genus: order}})
+            else:
+                duck.update({family: genus})
+
+            yield duck
+
+    def domain(self, response, kingdom=None, phylum=None):
+
+        # response.xpath("/*[@lang]/@lang").get()
+
+        duck = dict()
 
         if kingdom:
             duck[f"{kingdom}"] = response.url
 
         if phylum:
-            duck = dict()
             order = dict()
 
-            for classes in list(
-                filter(
-                    None,
-                    [
-                        *[
-                            pandas.Series(
-                                data.xpath(
-                                    './/descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                                ).extract()
-                            )
-                            .str.cat()
-                            .strip()
-                            for data in response.xpath(
-                                '//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th'
-                            )
-                        ],
-                        *[
-                            pandas.Series(
-                                data.xpath(
-                                    './/descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                                ).extract()
-                            )
-                            .str.cat()
-                            .strip()
-                            for data in response.xpath(
-                                '//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::*]'
-                            )
-                        ],
-                    ],
-                )
-            ):
-
-                duckling["classes"] = classes
-
-                if "'" not in classes:
-                    classes = "'" + classes + "'"
-                elif '"' not in classes:
-                    classes = '"' + classes + '"'
-                else:
-                    classes = (
-                        "concat('" + classes.replace("'", "',\"'\",'") + "')"
-                    )
-
-                if response.xpath(
-                    f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes})]//br'
-                ):
-                    duckling["classes"] = (
-                        pandas.Series(
-                            response.xpath(
-                                f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes})]//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                            ).extract()
-                        )
-                        .str.cat(sep=" ")
-                        .strip()
-                    )
-                if response.xpath(
-                    f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes})]//br'
-                ):
-                    duckling["classes"] = (
-                        pandas.Series(
-                            response.xpath(
-                                f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes})]//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                            ).extract()
-                        )
-                        .str.cat(sep=" ")
-                        .strip()
-                    )
-
-                if response.xpath(
-                    f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes})]'
-                ):
-                    class_nest = f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes})]'
-                    order_nest = "//parent::tr//td"
-
-                    duckling["data_url"] = list(
-                        filter(
-                            None,
-                            [
-                                *[
-                                    data
-                                    for data in [
-                                        dict(
-                                            zip(
-                                                [
-                                                    pandas.Series(family)
-                                                    .str.cat()
-                                                    .strip()
-                                                    for family in response.xpath(
-                                                        f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and @title]//@title'
-                                                    ).extract()
-                                                ],
-                                                [
-                                                    response.urljoin(genus)
-                                                    for genus in response.xpath(
-                                                        f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and @title]//@href'
-                                                    ).extract()
-                                                ],
-                                            )
-                                        )
-                                    ]
-                                ],
-                                *[
-                                    data
-                                    for data in [
-                                        dict(
-                                            zip(
-                                                [
-                                                    pandas.Series(family)
-                                                    .str.cat()
-                                                    .strip()
-                                                    for family in response.xpath(
-                                                        f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and not(@title)]//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                                                    ).extract()
-                                                ],
-                                                [
-                                                    response.urljoin(genus)
-                                                    for genus in response.xpath(
-                                                        f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and not(@title)]//@href[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                                                    ).extract()
-                                                ],
-                                            )
-                                        )
-                                    ]
-                                ],
-                            ],
-                        )
-                    )
-
-                    duckling["data"] = list(
-                        filter(
-                            None,
-                            [
-                                pandas.Series(specie).str.cat().strip()
-                                for specie in response.xpath(
-                                    f'{class_nest}{order_nest}//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@style="display:none"]) and not(ancestor-or-self::*[@class="reference"]) and not(ancestor-or-self::*[@href])]'
-                                ).extract()
-                            ],
-                        )
-                    )
-
-                    order.update(
-                        {
-                            duckling["classes"]: list(
-                                filter(
-                                    None,
-                                    [*duckling["data_url"], *duckling["data"]],
-                                )
-                            )
-                        }
-                    )
-
-                if response.xpath(
-                    f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes})]'
-                ):
-                    class_nest = f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes})]'
-                    order_nest = "//following-sibling::*"
-
-                    duckling["data_url"] = list(
-                        filter(
-                            None,
-                            [
-                                *[
-                                    data
-                                    for data in [
-                                        dict(
-                                            zip(
-                                                [
-                                                    pandas.Series(family)
-                                                    .str.cat()
-                                                    .strip()
-                                                    for family in response.xpath(
-                                                        f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and @title]//@title'
-                                                    ).extract()
-                                                ],
-                                                [
-                                                    response.urljoin(genus)
-                                                    for genus in response.xpath(
-                                                        f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and @title]//@href'
-                                                    ).extract()
-                                                ],
-                                            )
-                                        )
-                                    ]
-                                ],
-                                *[
-                                    data
-                                    for data in [
-                                        dict(
-                                            zip(
-                                                [
-                                                    pandas.Series(family)
-                                                    .str.cat()
-                                                    .strip()
-                                                    for family in response.xpath(
-                                                        f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and not(@title)]//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                                                    ).extract()
-                                                ],
-                                                [
-                                                    response.urljoin(genus)
-                                                    for genus in response.xpath(
-                                                        f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and not(@title)]//@href[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                                                    ).extract()
-                                                ],
-                                            )
-                                        )
-                                    ]
-                                ],
-                            ],
-                        )
-                    )
-
-                    duckling["data"] = list(
-                        filter(
-                            None,
-                            [
-                                pandas.Series(specie).str.cat().strip()
-                                for specie in response.xpath(
-                                    f'{class_nest}{order_nest}//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@style="display:none"]) and not(ancestor-or-self::*[@class="reference"]) and not(ancestor-or-self::*[@href])]'
-                                ).extract()
-                            ],
-                        )
-                    )
-
-                    order.update(
-                        {
-                            duckling["classes"]: list(
-                                filter(
-                                    None,
-                                    [*duckling["data_url"], *duckling["data"]],
-                                )
-                            )
-                        }
-                    )
-
-                for data in LinkExtractor(
-                    restrict_xpaths=f'{class_nest}{order_nest}//descendant-or-self::*[@href and not(ancestor-or-self::*[@class[contains(.,"new")]])]'
-                ).extract_links(response):
-                    yield response.follow(
-                        data, self.genus, cb_kwargs=dict(family=data.text)
-                    )
+            yield from self.life(response, order)
 
             # if order:
             #     duck[f"{phylum}"] = {response.url: [order, Goose({'keep_footnotes': False}).extract(raw_html=response.body).cleaned_text]}
@@ -322,542 +171,179 @@ class DuckSpider(CrawlSpider):
 
         duckling = ProjectDuckItem()
         duckling["kingdom"] = response.meta["link_text"]
-        duckling["url"] = response.url
 
         duck = dict()
-        duck.update({duckling["kingdom"]: duckling["url"]})
+        duck.update({duckling["kingdom"]: response.url})
 
         yield from response.follow_all(
             LinkExtractor(
                 restrict_xpaths='//*[@class="vector-menu-content-list"]//*[@class="interlanguage-link-target"]//descendant-or-self::*[@href]'
             ).extract_links(response),
-            self.life,
-            cb_kwargs=dict(duck=duck, kingdom=duckling["kingdom"]),
+            self.domain,
+            cb_kwargs=dict(kingdom=duckling["kingdom"]),
         )
         yield duck
 
     def phylum(self, response):
 
-        # domain = response.xpath("/*[@lang]/@lang").get()
+        # response.xpath("/*[@lang]/@lang").get()
 
         duckling = ProjectDuckItem()
         duckling["phylum"] = response.meta["link_text"]
-        duckling["url"] = response.url
 
         duck = dict()
         order = dict()
 
-        for classes in list(
-            filter(
-                None,
-                [
-                    *[
-                        pandas.Series(
-                            data.xpath(
-                                './/descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                            ).extract()
-                        )
-                        .str.cat()
-                        .strip()
-                        for data in response.xpath(
-                            '//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th'
-                        )
-                    ],
-                    *[
-                        pandas.Series(
-                            data.xpath(
-                                './/descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                            ).extract()
-                        )
-                        .str.cat()
-                        .strip()
-                        for data in response.xpath(
-                            '//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::*]'
-                        )
-                    ],
-                ],
-            )
-        ):
-
-            duckling["classes"] = classes
-
-            if "'" not in classes:
-                classes = "'" + classes + "'"
-            elif '"' not in classes:
-                classes = '"' + classes + '"'
-            else:
-                classes = "concat('" + classes.replace("'", "',\"'\",'") + "')"
-
-            if response.xpath(
-                f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes})]//br'
-            ):
-                duckling["classes"] = (
-                    pandas.Series(
-                        response.xpath(
-                            f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes})]//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                        ).extract()
-                    )
-                    .str.cat(sep=" ")
-                    .strip()
-                )
-            if response.xpath(
-                f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes})]//br'
-            ):
-                duckling["classes"] = (
-                    pandas.Series(
-                        response.xpath(
-                            f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes})]//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                        ).extract()
-                    )
-                    .str.cat(sep=" ")
-                    .strip()
-                )
-
-            if response.xpath(
-                f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes})]'
-            ):
-                class_nest = f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes})]'
-                order_nest = "//parent::tr//td"
-
-                duckling["data_url"] = list(
-                    filter(
-                        None,
-                        [
-                            *[
-                                data
-                                for data in [
-                                    dict(
-                                        zip(
-                                            [
-                                                pandas.Series(family)
-                                                .str.cat()
-                                                .strip()
-                                                for family in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and @title]//@title'
-                                                ).extract()
-                                            ],
-                                            [
-                                                response.urljoin(genus)
-                                                for genus in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and @title]//@href'
-                                                ).extract()
-                                            ],
-                                        )
-                                    )
-                                ]
-                            ],
-                            *[
-                                data
-                                for data in [
-                                    dict(
-                                        zip(
-                                            [
-                                                pandas.Series(family)
-                                                .str.cat()
-                                                .strip()
-                                                for family in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and not(@title)]//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                                                ).extract()
-                                            ],
-                                            [
-                                                response.urljoin(genus)
-                                                for genus in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and not(@title)]//@href[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                                                ).extract()
-                                            ],
-                                        )
-                                    )
-                                ]
-                            ],
-                        ],
-                    )
-                )
-
-                duckling["data"] = list(
-                    filter(
-                        None,
-                        [
-                            pandas.Series(specie).str.cat().strip()
-                            for specie in response.xpath(
-                                f'{class_nest}{order_nest}//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@style="display:none"]) and not(ancestor-or-self::*[@class="reference"]) and not(ancestor-or-self::*[@href])]'
-                            ).extract()
-                        ],
-                    )
-                )
-
-                order.update(
-                    {
-                        duckling["classes"]: list(
-                            filter(
-                                None,
-                                [*duckling["data_url"], *duckling["data"]],
-                            )
-                        )
-                    }
-                )
-
-            if response.xpath(
-                f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes})]'
-            ):
-                class_nest = f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes})]'
-                order_nest = "//following-sibling::*"
-
-                duckling["data_url"] = list(
-                    filter(
-                        None,
-                        [
-                            *[
-                                data
-                                for data in [
-                                    dict(
-                                        zip(
-                                            [
-                                                pandas.Series(family)
-                                                .str.cat()
-                                                .strip()
-                                                for family in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and @title]//@title'
-                                                ).extract()
-                                            ],
-                                            [
-                                                response.urljoin(genus)
-                                                for genus in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and @title]//@href'
-                                                ).extract()
-                                            ],
-                                        )
-                                    )
-                                ]
-                            ],
-                            *[
-                                data
-                                for data in [
-                                    dict(
-                                        zip(
-                                            [
-                                                pandas.Series(family)
-                                                .str.cat()
-                                                .strip()
-                                                for family in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and not(@title)]//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                                                ).extract()
-                                            ],
-                                            [
-                                                response.urljoin(genus)
-                                                for genus in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and not(@title)]//@href[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                                                ).extract()
-                                            ],
-                                        )
-                                    )
-                                ]
-                            ],
-                        ],
-                    )
-                )
-
-                duckling["data"] = list(
-                    filter(
-                        None,
-                        [
-                            pandas.Series(specie).str.cat().strip()
-                            for specie in response.xpath(
-                                f'{class_nest}{order_nest}//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@style="display:none"]) and not(ancestor-or-self::*[@class="reference"]) and not(ancestor-or-self::*[@href])]'
-                            ).extract()
-                        ],
-                    )
-                )
-
-                order.update(
-                    {
-                        duckling["classes"]: list(
-                            filter(
-                                None,
-                                [*duckling["data_url"], *duckling["data"]],
-                            )
-                        )
-                    }
-                )
-
-            for data in LinkExtractor(
-                restrict_xpaths=f'{class_nest}{order_nest}//descendant-or-self::*[@href and not(ancestor-or-self::*[@class[contains(.,"new")]])]'
-            ).extract_links(response):
-                yield response.follow(
-                    data, self.genus, cb_kwargs=dict(family=data.text)
-                )
+        yield from self.life(response, order)
 
         # if order:
-        #     duck.update({duckling['phylum']: {duckling['url']: [order, Goose({'keep_footnotes': False}).extract(raw_html=response.body).cleaned_text]}})
+        #     duck.update({duckling['phylum']: {response.url: [order, Goose({'keep_footnotes': False}).extract(raw_html=response.body).cleaned_text]}})
         # else:
-        #     duck.update({duckling['phylum']: {duckling['url']: Goose({'keep_footnotes': False}).extract(raw_html=response.body).cleaned_text}})
+        #     duck.update({duckling['phylum']: {response.url: Goose({'keep_footnotes': False}).extract(raw_html=response.body).cleaned_text}})
 
         if order:
-            duck.update({duckling["phylum"]: {duckling["url"]: order}})
+            duck.update({duckling["phylum"]: {response.url: order}})
         else:
-            duck.update({duckling["phylum"]: duckling["url"]})
+            duck.update({duckling["phylum"]: response.url})
 
         yield from response.follow_all(
             LinkExtractor(
                 restrict_xpaths='//*[@class="vector-menu-content-list"]//*[@class="interlanguage-link-target"]//descendant-or-self::*[@href]'
             ).extract_links(response),
-            self.life,
-            cb_kwargs=dict(duck=duck, phylum=duckling["phylum"]),
+            self.domain,
+            cb_kwargs=dict(phylum=duckling["phylum"]),
         )
         yield duck
 
-    def genus(self, response, family=None):
+    def classes(self, response, duckling, classes_data):
+        duckling["classes"] = classes_data
 
-        # domain = response.xpath("/*[@lang]/@lang").get()
+        if "'" not in classes_data:
+            classes_data = "'" + classes_data + "'"
+        elif '"' not in classes_data:
+            classes_data = '"' + classes_data + '"'
+        else:
+            classes_data = (
+                "concat('" + classes_data.replace("'", "',\"'\",'") + "')"
+            )
 
-        duckling = ProjectDuckItem()
-        duckling["url"] = response.url
+        if response.xpath(
+            f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes_data})]//br'
+        ):
+            duckling["classes"] = (
+                pandas.Series(
+                    response.xpath(
+                        f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes_data})]//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
+                    ).extract()
+                )
+                .str.cat(sep=" ")
+                .strip()
+            )
+        if response.xpath(
+            f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes_data})]//br'
+        ):
+            duckling["classes"] = (
+                pandas.Series(
+                    response.xpath(
+                        f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes_data})]//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
+                    ).extract()
+                )
+                .str.cat(sep=" ")
+                .strip()
+            )
 
-        duck = dict()
-        order = dict()
+        return classes_data
 
-        for classes in list(
+    def order(self, response, class_nest, order_nest, order, duckling):
+        self.family(response, class_nest, order_nest, duckling)
+        self.genus(response, class_nest, order_nest, duckling)
+        self.specie(response, class_nest, order_nest, duckling)
+
+        order.update(
+            {
+                duckling["classes"]: list(
+                    filter(
+                        None,
+                        [
+                            *list(
+                                filter(
+                                    None,
+                                    [
+                                        data
+                                        for data in [
+                                            dict(
+                                                zip(
+                                                    duckling["family"],
+                                                    duckling["genus"],
+                                                )
+                                            )
+                                        ]
+                                    ],
+                                )
+                            ),
+                            *duckling["specie"],
+                        ],
+                    )
+                )
+            }
+        )
+
+    def family(self, response, class_nest, order_nest, duckling):
+        duckling["family"] = [
+            *[
+                pandas.Series(family).str.cat().strip()
+                for family in response.xpath(
+                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and @title]//@title'
+                ).extract()
+            ],
+            *[
+                pandas.Series(family).str.cat().strip()
+                for family in response.xpath(
+                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and not(@title) and descendant-or-self::text()]//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
+                ).extract()
+            ],
+            *[
+                pandas.Series(family).str.cat().strip()
+                for family in response.xpath(
+                    f'{class_nest}{order_nest}//descendant-or-self::*[@href[contains(.,"wikidata.org")] and descendant-or-self::text()]//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
+                ).extract()
+            ],
+        ]
+
+    def genus(self, response, class_nest, order_nest, duckling):
+        duckling["genus"] = [
+            *[
+                response.urljoin(genus)
+                for genus in response.xpath(
+                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and @title]//@href'
+                ).extract()
+            ],
+            *[
+                response.urljoin(genus)
+                for genus in response.xpath(
+                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and not(@title) and descendant-or-self::text()]//@href[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
+                ).extract()
+            ],
+            *[
+                response.urljoin(genus)
+                for genus in response.xpath(
+                    f'{class_nest}{order_nest}//descendant-or-self::*[@href[contains(.,"wikidata.org")] and descendant-or-self::text()]//@href[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
+                ).extract()
+            ],
+        ]
+
+    def specie(self, response, class_nest, order_nest, duckling):
+        duckling["specie"] = list(
             filter(
                 None,
                 [
-                    *[
-                        pandas.Series(
-                            data.xpath(
-                                './/descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                            ).extract()
-                        )
-                        .str.cat()
-                        .strip()
-                        for data in response.xpath(
-                            '//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th'
-                        )
-                    ],
-                    *[
-                        pandas.Series(
-                            data.xpath(
-                                './/descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                            ).extract()
-                        )
-                        .str.cat()
-                        .strip()
-                        for data in response.xpath(
-                            '//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::*]'
-                        )
-                    ],
+                    pandas.Series(specie).str.cat().strip()
+                    for specie in response.xpath(
+                        f'{class_nest}{order_nest}//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@style="display:none"]) and not(ancestor-or-self::*[@class="reference"]) and not(ancestor-or-self::*[@href])]'
+                    ).extract()
                 ],
             )
-        ):
-
-            duckling["classes"] = classes
-
-            if "'" not in classes:
-                classes = "'" + classes + "'"
-            elif '"' not in classes:
-                classes = '"' + classes + '"'
-            else:
-                classes = "concat('" + classes.replace("'", "',\"'\",'") + "')"
-
-            if response.xpath(
-                f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes})]//br'
-            ):
-                duckling["classes"] = (
-                    pandas.Series(
-                        response.xpath(
-                            f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes})]//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                        ).extract()
-                    )
-                    .str.cat(sep=" ")
-                    .strip()
-                )
-            if response.xpath(
-                f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes})]//br'
-            ):
-                duckling["classes"] = (
-                    pandas.Series(
-                        response.xpath(
-                            f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes})]//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                        ).extract()
-                    )
-                    .str.cat(sep=" ")
-                    .strip()
-                )
-
-            if response.xpath(
-                f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes})]'
-            ):
-                class_nest = f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and descendant::th and descendant::td]//th[contains(.,{classes})]'
-                order_nest = "//parent::tr//td"
-
-                duckling["data_url"] = list(
-                    filter(
-                        None,
-                        [
-                            *[
-                                data
-                                for data in [
-                                    dict(
-                                        zip(
-                                            [
-                                                pandas.Series(family)
-                                                .str.cat()
-                                                .strip()
-                                                for family in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and @title]//@title'
-                                                ).extract()
-                                            ],
-                                            [
-                                                response.urljoin(genus)
-                                                for genus in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and @title]//@href'
-                                                ).extract()
-                                            ],
-                                        )
-                                    )
-                                ]
-                            ],
-                            *[
-                                data
-                                for data in [
-                                    dict(
-                                        zip(
-                                            [
-                                                pandas.Series(family)
-                                                .str.cat()
-                                                .strip()
-                                                for family in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and not(@title)]//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                                                ).extract()
-                                            ],
-                                            [
-                                                response.urljoin(genus)
-                                                for genus in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and not(@title)]//@href[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                                                ).extract()
-                                            ],
-                                        )
-                                    )
-                                ]
-                            ],
-                        ],
-                    )
-                )
-
-                duckling["data"] = list(
-                    filter(
-                        None,
-                        [
-                            pandas.Series(specie).str.cat().strip()
-                            for specie in response.xpath(
-                                f'{class_nest}{order_nest}//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@style="display:none"]) and not(ancestor-or-self::*[@class="reference"]) and not(ancestor-or-self::*[@href])]'
-                            ).extract()
-                        ],
-                    )
-                )
-
-                order.update(
-                    {
-                        duckling["classes"]: list(
-                            filter(
-                                None,
-                                [*duckling["data_url"], *duckling["data"]],
-                            )
-                        )
-                    }
-                )
-
-            if response.xpath(
-                f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes})]'
-            ):
-                class_nest = f'//tr[ancestor-or-self::*[@class[contains(.,"infobox") or contains(.,"infocaseta")]] and not(descendant::th) and descendant::td]//td[following-sibling::* and contains(.,{classes})]'
-                order_nest = "//following-sibling::*"
-
-                duckling["data_url"] = list(
-                    filter(
-                        None,
-                        [
-                            *[
-                                data
-                                for data in [
-                                    dict(
-                                        zip(
-                                            [
-                                                pandas.Series(family)
-                                                .str.cat()
-                                                .strip()
-                                                for family in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and @title]//@title'
-                                                ).extract()
-                                            ],
-                                            [
-                                                response.urljoin(genus)
-                                                for genus in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and @title]//@href'
-                                                ).extract()
-                                            ],
-                                        )
-                                    )
-                                ]
-                            ],
-                            *[
-                                data
-                                for data in [
-                                    dict(
-                                        zip(
-                                            [
-                                                pandas.Series(family)
-                                                .str.cat()
-                                                .strip()
-                                                for family in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and not(@title)]//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                                                ).extract()
-                                            ],
-                                            [
-                                                response.urljoin(genus)
-                                                for genus in response.xpath(
-                                                    f'{class_nest}{order_nest}//descendant-or-self::*[not(ancestor-or-self::*[@href[contains(.,"wikidata.org")]]) and @href and not(@title)]//@href[not(ancestor-or-self::style) and not(ancestor-or-self::*[@class="reference"])]'
-                                                ).extract()
-                                            ],
-                                        )
-                                    )
-                                ]
-                            ],
-                        ],
-                    )
-                )
-
-                duckling["data"] = list(
-                    filter(
-                        None,
-                        [
-                            pandas.Series(specie).str.cat().strip()
-                            for specie in response.xpath(
-                                f'{class_nest}{order_nest}//descendant-or-self::*//text()[not(ancestor-or-self::style) and not(ancestor-or-self::*[@style="display:none"]) and not(ancestor-or-self::*[@class="reference"]) and not(ancestor-or-self::*[@href])]'
-                            ).extract()
-                        ],
-                    )
-                )
-
-                order.update(
-                    {
-                        duckling["classes"]: list(
-                            filter(
-                                None,
-                                [*duckling["data_url"], *duckling["data"]],
-                            )
-                        )
-                    }
-                )
-
-        # if order:
-        #     duck.update({family: {duckling['url']: [order, Goose({'keep_footnotes': False}).extract(raw_html=response.body).cleaned_text]}})
-        # else:
-        #     duck.update({family: {duckling['url']: Goose({'keep_footnotes': False}).extract(raw_html=response.body).cleaned_text}})
-
-        if order:
-            duck.update({family: {duckling["url"]: order}})
-        else:
-            duck.update({family: duckling["url"]})
-
-        yield duck
+        )
 
 
 configure_logging()
