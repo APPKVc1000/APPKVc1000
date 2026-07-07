@@ -7,6 +7,7 @@ import scrapy
 
 
 class ProjectDuckItem(scrapy.Item):
+    # define the fields for your item here like:
     kingdom = scrapy.Field()
     phylum = scrapy.Field()
     classes = scrapy.Field()
@@ -14,5 +15,4 @@ class ProjectDuckItem(scrapy.Item):
     family = scrapy.Field()
     genus = scrapy.Field()
     specie = scrapy.Field()
-    
     pass

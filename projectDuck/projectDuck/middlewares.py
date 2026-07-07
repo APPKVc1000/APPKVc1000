@@ -4,9 +4,11 @@
 # https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
 from scrapy import signals
+from scrapy.downloadermiddlewares.useragent import UserAgentMiddleware
+import random
 
 # useful for handling different item types with a single interface
-from itemadapter import is_item, ItemAdapter
+from itemadapter import ItemAdapter
 
 
 class ProjectduckSpiderMiddleware:
@@ -43,14 +45,11 @@ class ProjectduckSpiderMiddleware:
         # Should return either None or an iterable of Request or item objects.
         pass
 
-    def process_start_requests(self, start_requests, spider):
-        # Called with the start requests of the spider, and works
-        # similarly to the process_spider_output() method, except
-        # that it doesn’t have a response associated.
-
-        # Must return only requests (not items).
-        for r in start_requests:
-            yield r
+    async def process_start(self, start):
+        # Called with an async iterator over the spider start() method or the
+        # matching method of an earlier spider middleware.
+        async for item_or_request in start:
+            yield item_or_request
 
     def spider_opened(self, spider):
         spider.logger.info("Spider opened: %s" % spider.name)
@@ -101,3 +100,19 @@ class ProjectduckDownloaderMiddleware:
 
     def spider_opened(self, spider):
         spider.logger.info("Spider opened: %s" % spider.name)
+
+
+class SpeciesRotatorMiddleware:
+    def __init__(self, species_agents, crawler):
+        self.species_agents = species_agents
+        self.crawler = crawler
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls(
+            species_agents=crawler.settings.get("USER_AGENTS"),
+            crawler=crawler
+        )
+
+    def process_request(self, request):
+        request.headers["User-Agent"] = random.choice(self.species_agents).encode('utf-8')

@@ -10,20 +10,22 @@ from collections import defaultdict
 
 
 class ProjectduckPipeline:
-    def process_item(self, item, spider):
-        
-        if any(isinstance(data, dict) for data in item.values()):
-        
-            phyla = defaultdict(list)            
-            for webpage, data in item.items():
-                    for webpages, url in item.items():
-                        phyla[webpages].append(url)
-                
-            phylum = dict()
+    def process_item(self, item):
+
+        adapter = ItemAdapter(item)
+        if any(isinstance(v, dict) for v in adapter.values()):
+
+            phyla = defaultdict(list)
+            for webpage, data in adapter.items():
+                for webpages, url in adapter.items():
+                    phyla[webpages].append(url)
+
+            phylum = {}
             for website, data in phyla.items():
                 for webpage in data:
                     for url, classes in webpage.items():
                         phylum[str((website, url))] = classes
-            item = phylum
-        
+
+            return phylum
+
         return item
